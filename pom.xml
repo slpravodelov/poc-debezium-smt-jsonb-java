@@ -7,7 +7,7 @@
 
     <groupId>com.example</groupId>
     <artifactId>debezium-jsonb-smt</artifactId>
-    <version>1.1.9</version>
+    <version>1.2.9</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -97,7 +97,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>org.mtq.debezium.smt.PocJsonTransform</mainClass>
+                            <mainClass>org.mtq.debezium.smt.PoCJsonTransform</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
