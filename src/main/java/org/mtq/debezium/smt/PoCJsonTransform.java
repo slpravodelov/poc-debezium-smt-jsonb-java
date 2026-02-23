@@ -1,4 +1,4 @@
-package com.example.debezium.smt;
+package org.mtq.debezium.smt;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,9 +12,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class JsonbToNestedMapTransform<R extends ConnectRecord<R>> implements Transformation<R> {
+public class PoCJsonTransform<R extends ConnectRecord<R>> implements Transformation<R> {
     
-    private static final Logger log = LoggerFactory.getLogger(JsonbToNestedMapTransform.class);
+    private static final Logger log = LoggerFactory.getLogger(PoCJsonTransform.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     
     private static final String FIELD_CONFIG = "jsonb.fields";
@@ -41,7 +41,7 @@ public class JsonbToNestedMapTransform<R extends ConnectRecord<R>> implements Tr
         Object failObj = props.get(FAIL_ON_ERROR_CONFIG);
         this.failOnError = failObj == null || Boolean.parseBoolean(failObj.toString());
         
-        log.info("JsonbToNestedMapTransform configured for fields: {}", jsonbFields);
+        log.info("PoCJsonTransform configured for fields: {}", jsonbFields);
     }
     
     @Override

@@ -7,7 +7,7 @@
 
     <groupId>com.example</groupId>
     <artifactId>debezium-jsonb-smt</artifactId>
-    <version>1.0.3</version>
+    <version>1.1.9</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -85,6 +85,32 @@
 					</execution>
 				</executions>
 			</plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <mainClass>org.mtq.debezium.smt.PocJsonTransform</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>assemble-all</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>  
 		
         </plugins>
     </build>
