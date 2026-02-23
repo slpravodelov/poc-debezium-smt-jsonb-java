@@ -54,17 +54,14 @@ public class JsonbToNestedMapTransform<R extends ConnectRecord<R>> implements Tr
             Struct originalValue = (Struct) record.value();
             Schema originalSchema = record.valueSchema();
             
-            // Создаем новую схему
             SchemaBuilder newSchemaBuilder = SchemaBuilder.struct();
             
             if (originalSchema.name() != null) {
                 newSchemaBuilder.name(originalSchema.name());
             }
             
-            // Копируем все поля
             for (Field field : originalSchema.fields()) {
                 if (shouldTransform(field.name())) {
-                    // Используем flexible schema для JSON данных
                     newSchemaBuilder.field(field.name(), Schema.OPTIONAL_STRING_SCHEMA);
                 } else {
                     newSchemaBuilder.field(field.name(), field.schema());
@@ -74,13 +71,11 @@ public class JsonbToNestedMapTransform<R extends ConnectRecord<R>> implements Tr
             Schema newSchema = newSchemaBuilder.build();
             Struct newValue = new Struct(newSchema);
             
-            // Заполняем значения
             for (Field field : originalSchema.fields()) {
                 Object fieldValue = originalValue.get(field);
                 
                 if (shouldTransform(field.name()) && fieldValue != null) {
                     try {
-                        // Парсим JSON и конвертируем в Map с поддержкой вложенности
                         Object parsedValue = parseJson(fieldValue.toString());
                         newValue.put(field.name(), parsedValue);
                     } catch (Exception e) {
@@ -161,7 +156,7 @@ public class JsonbToNestedMapTransform<R extends ConnectRecord<R>> implements Tr
             } else if (node.isDouble()) {
                 return node.asDouble();
             } else {
-                return node.asText(); // для больших чисел
+                return node.asText();
             }
         } else if (node.isBoolean()) {
             return node.asBoolean();
