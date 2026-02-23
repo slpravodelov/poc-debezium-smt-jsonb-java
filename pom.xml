@@ -5,9 +5,9 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.example</groupId>
-    <artifactId>debezium-jsonb-smt</artifactId>
-    <version>1.2.9</version>
+    <groupId>org.mtq.kafka.connect.transforms.debezium</groupId>
+    <artifactId>mtq-transforms-debezium-smt</artifactId>
+    <version>1.3.1</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -24,12 +24,18 @@
             <version>${kafka.version}</version>
             <scope>provided</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-json</artifactId>
             <version>${kafka.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-api</artifactId>
+            <version>${debezium.version}</version>
         </dependency>
         
         <dependency>
@@ -44,6 +50,7 @@
             <version>2.0.9</version>
             <scope>provided</scope>
         </dependency>
+
     </dependencies>
 
     <build>
@@ -97,7 +104,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>org.mtq.debezium.smt.PoCJsonTransform</mainClass>
+                            <mainClass>org.mtq.kafka.connect.transforms.debezium.JsonStringValueParser</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

@@ -1,2 +1,7 @@
 # poc-debezium-smt-jsonb-java
-Эта срань чистейший PoC для проверки SMT (не для использования на Production)
+
+```
+"transforms": "jsonStringParser",
+"transforms.jsonStringParser.type": "org.mtq.kafka.connect.transforms.debezium.JsonStringValueParser",
+"transforms.jsonStringParser.process.fields": "data,metadata",
+```
