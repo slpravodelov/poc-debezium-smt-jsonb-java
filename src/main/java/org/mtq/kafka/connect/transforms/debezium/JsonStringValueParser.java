@@ -23,28 +23,28 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
     private static final String FIELD_CONFIG = "process.fields";
     private static final String FAIL_ON_ERROR_CONFIG = "fail.on.error";
 
-    private Set<String> jsonbFields;
+    private Set<String> targetFields;
     private boolean failOnError;
 
     @Override
     public void configure(Map<String, ?> props) {
         Object fieldsObj = props.get(FIELD_CONFIG);
         if (fieldsObj instanceof List) {
-            this.jsonbFields = new HashSet<>((List<String>) fieldsObj);
+            this.targetFields = new HashSet<>((List<String>) fieldsObj);
         } else if (fieldsObj instanceof String) {
             String[] fields = ((String) fieldsObj).split(",");
-            this.jsonbFields = new HashSet<>();
+            this.targetFields = new HashSet<>();
             for (String field : fields) {
-                this.jsonbFields.add(field.trim());
+                this.targetFields.add(field.trim());
             }
         } else {
-            this.jsonbFields = new HashSet<>();
+            this.targetFields = new HashSet<>();
         }
 
         Object failObj = props.get(FAIL_ON_ERROR_CONFIG);
         this.failOnError = failObj == null || Boolean.parseBoolean(failObj.toString());
 
-        log.info("JsonStringValueParser configured for fields: {}", jsonbFields);
+        log.info("JsonStringValueParser configured for fields: {}", targetFields);
     }
 
     @Override
@@ -57,30 +57,32 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
             Struct originalValue = (Struct) record.value();
             Schema originalSchema = record.valueSchema();
 
-            SchemaBuilder newSchemaBuilder = SchemaBuilder.struct();
+            SchemaBuilder outSchemaBuilder = SchemaBuilder.struct();
 
             if (originalSchema.name() != null) {
-                newSchemaBuilder.name(originalSchema.name());
+                outSchemaBuilder.name(originalSchema.name());
             }
 
             for (Field field : originalSchema.fields()) {
                 if (shouldTransform(field.name())) {
-                    newSchemaBuilder.field(field.name(), Schema.OPTIONAL_STRING_SCHEMA);
+                    String jsonString = originalValue.get(field).toString();
+                    Schema jsonSchema = new JsonStringSchemaBuilder().convert(jsonString);
+                    outSchemaBuilder.field(field.name(), jsonSchema);
                 } else {
-                    newSchemaBuilder.field(field.name(), field.schema());
+                    outSchemaBuilder.field(field.name(), field.schema());
                 }
             }
 
-            Schema newSchema = newSchemaBuilder.build();
-            Struct newValue = new Struct(newSchema);
-
+            Schema outSchema = outSchemaBuilder.build();
+            Struct outValue = new Struct(outSchema);
+            
             for (Field field : originalSchema.fields()) {
                 Object fieldValue = originalValue.get(field);
 
                 if (shouldTransform(field.name()) && fieldValue != null) {
                     try {
-                        Object parsedValue = parseJson(fieldValue.toString());
-                        newValue.put(field.name(), parsedValue);
+                        Object parsedValue = parseJsonToConnect(fieldValue.toString(), outSchema.field(field.name()).schema());
+                        outValue.put(field.name(), parsedValue);
                     } catch (Exception e) {
                         log.warn("Failed to parse JSON for field {}: {}", field.name(), e.getMessage());
 
@@ -88,10 +90,10 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
                             throw new DataException("Failed to parse JSON for field:" + field.name(), e);
                         }
 
-                        newValue.put(field.name(), fieldValue);
+                        outValue.put(field.name(), fieldValue);
                     }
                 } else {
-                    newValue.put(field.name(), fieldValue);
+                    outValue.put(field.name(), fieldValue);
                 }
             }
 
@@ -100,8 +102,8 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
                     record.kafkaPartition(),
                     record.keySchema(),
                     record.key(),
-                    newSchema,
-                    newValue,
+                    outSchema,
+                    outValue,
                     record.timestamp(),
                     record.headers()
             );
@@ -117,56 +119,60 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         }
     }
 
-    private boolean shouldTransform(String fieldName) {
-        return jsonbFields != null && jsonbFields.contains(fieldName);
-    }
-
-    private Object parseJson(String jsonString) throws Exception {
+    // Новый метод для парсинга JSON в Connect типы
+    private Object parseJsonToConnect(String jsonString, Schema targetSchema) throws Exception {
         JsonNode rootNode = OBJECT_MAPPER.readTree(jsonString);
-        return convertJsonNode(rootNode);
+        return convertJsonNodeToConnect(rootNode, targetSchema);
     }
 
-    private Object convertJsonNode(JsonNode node) {
+    private Object convertJsonNodeToConnect(JsonNode node, Schema schema) {
         if (node == null || node.isNull()) {
             return null;
         }
 
-        if (node.isObject()) {
-            Map<String, Object> result = new HashMap<>();
-            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        switch (schema.type()) {
+            case STRUCT:
+                Struct struct = new Struct(schema);
+                Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+                while (fields.hasNext()) {
+                    Map.Entry<String, JsonNode> field = fields.next();
+                    String fieldName = field.getKey();
+                    JsonNode fieldValue = field.getValue();
+                    Schema fieldSchema = schema.field(fieldName).schema();
+                    struct.put(fieldName, convertJsonNodeToConnect(fieldValue, fieldSchema));
+                }
+                return struct;
 
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> field = fields.next();
-                result.put(field.getKey(), convertJsonNode(field.getValue()));
-            }
+            case ARRAY:
+                List<Object> list = new ArrayList<>();
+                Schema elementSchema = schema.valueSchema();
+                for (JsonNode element : node) {
+                    list.add(convertJsonNodeToConnect(element, elementSchema));
+                }
+                return list;
 
-            return result;
-
-        } else if (node.isArray()) {
-            List<Object> result = new ArrayList<>();
-            for (JsonNode element : node) {
-                result.add(convertJsonNode(element));
-            }
-            return result;
-
-        } else if (node.isTextual()) {
-            return node.asText();
-        } else if (node.isNumber()) {
-            if (node.isInt()) {
+            case INT32:
                 return node.asInt();
-            } else if (node.isLong()) {
-                return node.asLong();
-            } else if (node.isDouble()) {
-                return node.asDouble();
-            } else {
-                return node.asText();
-            }
-        } else if (node.isBoolean()) {
-            return node.asBoolean();
-        }
 
-        return node.asText();
+            case INT64:
+                return node.asLong();
+
+            case FLOAT64:
+                return node.asDouble();
+
+            case BOOLEAN:
+                return node.asBoolean();
+
+            default:
+                return node.asText();
+        }
     }
+
+    private boolean shouldTransform(String fieldName) {
+        return targetFields != null && targetFields.contains(fieldName);
+    }
+
+
 
     @Override
     public ConfigDef config() {
