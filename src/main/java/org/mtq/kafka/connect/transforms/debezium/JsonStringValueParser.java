@@ -3,16 +3,15 @@ package org.mtq.kafka.connect.transforms.debezium;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.components.Versioned;
 import org.apache.kafka.connect.connector.ConnectRecord;
-import org.apache.kafka.connect.data.*;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.transforms.Transformation;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +60,7 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         }
 
         // Always NOT NULL in success case
-        if (record.valueSchema() == null){
+        if (record.valueSchema() == null) {
             log.warn("");
             return record;
         } else {
@@ -165,7 +164,7 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
 
         var origBeforeValue = origRecordValue.get(DEBEZIUM_DATA_BEFORE_FIELD);
 
-        if(origBeforeValue != null) {
+        if (origBeforeValue != null) {
             var newRecordBeforeValue =
                     buildNewFieldData(origRecordValue, newRecordSchema.field(DEBEZIUM_DATA_BEFORE_FIELD).schema(), DEBEZIUM_DATA_BEFORE_FIELD);
 
@@ -175,7 +174,7 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         }
 
         var origAfterValue = origRecordValue.get(DEBEZIUM_DATA_AFTER_FIELD);
-        if(origAfterValue != null) {
+        if (origAfterValue != null) {
             var newRecordAfterValue =
                     buildNewFieldData(origRecordValue, newRecordSchema.field(DEBEZIUM_DATA_AFTER_FIELD).schema(), DEBEZIUM_DATA_AFTER_FIELD);
 
@@ -184,8 +183,8 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
             newRecordValue.put(DEBEZIUM_DATA_AFTER_FIELD, null);
         }
 
-        for (var f: origRecord.valueSchema().fields()) {
-            if(f.name().equals(DEBEZIUM_DATA_BEFORE_FIELD) || f.name().equals(DEBEZIUM_DATA_AFTER_FIELD)){
+        for (var f : origRecord.valueSchema().fields()) {
+            if (f.name().equals(DEBEZIUM_DATA_BEFORE_FIELD) || f.name().equals(DEBEZIUM_DATA_AFTER_FIELD)) {
                 continue;
             }
             newRecordValue.put(f.name(), ((Struct) origRecord.value()).get(f.name()));
@@ -205,11 +204,11 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
     private Struct buildNewFieldData(org.apache.kafka.connect.data.Struct origRecordValue, Schema newFieldSchema, String newFieldName)
             throws JsonProcessingException {
 
-        var old = (Struct)origRecordValue.get(newFieldName);
+        var old = (Struct) origRecordValue.get(newFieldName);
         var value = new Struct(newFieldSchema);
 
-        for (var f:newFieldSchema.fields()){
-            if(isTargetField(f.name())){
+        for (var f : newFieldSchema.fields()) {
+            if (isTargetField(f.name())) {
                 value.put(f.name(), jsonNodeToConnectValue(OBJECT_MAPPER.readTree(old.getString(f.name())), newFieldSchema.field(f.name()).schema()));
             } else {
                 value.put(f.name(), old.get(f.name()));
@@ -219,10 +218,10 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         return value;
     }
 
-    private org.apache.kafka.connect.data.Schema rebuildBeforeSchema(Field origBeforeField, org.apache.kafka.connect.data.Struct origRecordValue){
+    private org.apache.kafka.connect.data.Schema rebuildBeforeSchema(Field origBeforeField, org.apache.kafka.connect.data.Struct origRecordValue) {
         var origRecordBeforeValue = (org.apache.kafka.connect.data.Struct) origRecordValue.get(DEBEZIUM_DATA_BEFORE_FIELD);
 
-        if(origRecordBeforeValue == null){
+        if (origRecordBeforeValue == null) {
             // CREATE EVENT
             return Schema.OPTIONAL_STRING_SCHEMA;
         }
@@ -232,8 +231,8 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
                 .struct()
                 .name(origBeforeField.name() + "_before_field_parsed");
 
-        for (var f : origBeforeFieldSchema.fields()){
-            if(isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)){
+        for (var f : origBeforeFieldSchema.fields()) {
+            if (isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)) {
                 var origRecordBeforeFieldValue = (String) origRecordBeforeValue.get(f.name());
                 schemaBuilder.field(f.name(), JsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
             } else {
@@ -244,10 +243,10 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         return schemaBuilder.build();
     }
 
-    private org.apache.kafka.connect.data.Schema rebuildAfterSchema(Field origAfterField, org.apache.kafka.connect.data.Struct origRecordValue){
+    private org.apache.kafka.connect.data.Schema rebuildAfterSchema(Field origAfterField, org.apache.kafka.connect.data.Struct origRecordValue) {
         var origRecordAfterValue = (org.apache.kafka.connect.data.Struct) origRecordValue.get(DEBEZIUM_DATA_AFTER_FIELD);
 
-        if(origRecordAfterValue == null){
+        if (origRecordAfterValue == null) {
             // DELETE EVENT
             return Schema.OPTIONAL_STRING_SCHEMA;
         }
@@ -257,8 +256,8 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
                 .struct()
                 .name(origAfterField.name() + "_after_field_parsed");
 
-        for (var f : origBeforeFieldSchema.fields()){
-            if(isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)){
+        for (var f : origBeforeFieldSchema.fields()) {
+            if (isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)) {
                 var origRecordBeforeFieldValue = (String) origRecordAfterValue.get(f.name());
                 schemaBuilder.field(f.name(), JsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
             } else {
@@ -269,7 +268,7 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         return schemaBuilder.build();
     }
 
-    private boolean isTargetField(String fieldName){
+    private boolean isTargetField(String fieldName) {
         return targetFields.contains(fieldName);
     }
 
