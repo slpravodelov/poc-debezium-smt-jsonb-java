@@ -20,7 +20,7 @@ import java.util.*;
 
 public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transformation<R>, Versioned {
 
-    private static final String VERSION = "1.6.7";
+    private static final String VERSION = "1.6.8";
     private static final String DEBEZIUM_DATA_BEFORE_FIELD = "before";
     private static final String DEBEZIUM_DATA_AFTER_FIELD = "after";
 
@@ -144,8 +144,6 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
 
     private R rebuildRecord(R origRecord) throws JsonProcessingException {
 
-        long startTime = System.nanoTime();
-
         var recordSchemaBuilder = SchemaBuilder
                 .struct()
                 .name(origRecord.valueSchema().name() + "_parsed_json");
@@ -186,9 +184,12 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
             newRecordValue.put(DEBEZIUM_DATA_AFTER_FIELD, null);
         }
 
-        long endTime = System.nanoTime();
-
-        long duration = (endTime-startTime)/1000_000;
+        for (var f: origRecord.valueSchema().fields()) {
+            if(f.name().equals(DEBEZIUM_DATA_BEFORE_FIELD) || f.name().equals(DEBEZIUM_DATA_AFTER_FIELD)){
+                continue;
+            }
+            newRecordValue.put(f.name(), ((Struct) origRecord.value()).get(f.name()));
+        }
 
         return origRecord.newRecord(
                 origRecord.topic(),

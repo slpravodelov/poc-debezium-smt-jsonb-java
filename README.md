@@ -28,7 +28,7 @@
 ## Конфигурация к модулю Kafka Connect (Debezium):
 
 ```
-"transforms": "jsonStringParser",
-"transforms.jsonStringParser.type": "org.mtq.kafka.connect.transforms.debezium.JsonStringValueParser",
-"transforms.jsonStringParser.process.fields": "my_db_json_field1, my_db_json_field2",
+"transforms":"jsonStringValueParser",
+"transforms.jsonStringValueParser.type":"org.mtq.kafka.connect.transforms.debezium.JsonStringValueParser",
+"transforms.jsonStringValueParser.targetFields":"val_obj_jsonb,val_arr_jsonb,val_obj_json,val_arr_json"
 ```

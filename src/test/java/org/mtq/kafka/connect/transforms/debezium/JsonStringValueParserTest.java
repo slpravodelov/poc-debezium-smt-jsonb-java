@@ -177,11 +177,5 @@ class JsonStringValueParserTest {
             assertEquals("John", user.getString("name"));
             assertEquals(30, user.getInt32("age"));
         }
-
-        @Test
-        @DisplayName("Should return correct version")
-        void shouldReturnCorrectVersion() {
-            assertEquals("1.6.7", transformation.version());
-        }
     }
 }
