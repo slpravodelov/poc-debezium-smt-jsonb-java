@@ -2,6 +2,7 @@ package org.mtq.kafka.connect.transforms.debezium;
 
 import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.sink.SinkRecord;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;

@@ -3,31 +3,24 @@ package org.mtq.kafka.connect.transforms.debezium;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.components.Versioned;
-import org.apache.kafka.connect.connector.ConnectRecord;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.DataException;
-import org.apache.kafka.connect.transforms.Transformation;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transformation<R>, Versioned {
+public class DebeziumJsonParser<R extends org.apache.kafka.connect.connector.ConnectRecord<R>>
+        implements org.apache.kafka.connect.transforms.Transformation<R>, org.apache.kafka.connect.components.Versioned {
 
     private static final String VERSION = "1.6.8";
     private static final String DEBEZIUM_DATA_BEFORE_FIELD = "before";
     private static final String DEBEZIUM_DATA_AFTER_FIELD = "after";
 
-    private static final Logger log = LoggerFactory.getLogger(DebeziumJsonParser.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
     private static final String FIELD_CONFIG = "targetFields";
     private static final String FAIL_ON_ERROR_CONFIG = "fail.on.error";
+
+    private static final Logger LOG = LoggerFactory.getLogger(DebeziumJsonParser.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private Set<String> targetFields;
     private boolean failOnError;
@@ -48,85 +41,51 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
         }
 
         Object failObj = props.get(FAIL_ON_ERROR_CONFIG);
-        this.failOnError = failObj == null || Boolean.parseBoolean(failObj.toString());
-
-        log.info("DebeziumJsonParser configured for fields: {}", targetFields);
+        this.failOnError = (failObj == null) || Boolean.parseBoolean(failObj.toString());
     }
 
     @Override
     public R apply(R record) {
+
+        java.time.Instant digEvtStart = java.time.Instant.now();
+
         if (record.value() == null) {
             return record;
         }
 
-        // Always NOT NULL in success case
         if (record.valueSchema() == null) {
-            log.warn("");
+            LOG.warn("record.valueSchema() is NULL:: topic:{}, key:{}", record.topic(), record.key());
             return record;
         } else {
-            /*
-             * Debezium ConnectSchema fields:
-             *
-             * - Field: 'before'
-             *   type: STRUCT
-             *   optional: true
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             *
-             * - Field: 'after'
-             *   type: STRUCT
-             *   optional: true
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             *
-             * - Field: 'source'
-             *   type: STRUCT
-             *   optional: false
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             *
-             * - Field: 'transaction'
-             *   type: STRUCT
-             *   optional: true
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             *
-             * - Field: 'op'
-             *   type: STRING
-             *   optional: false
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             *
-             * - Field: 'ts_ms'
-             *   type: INT64
-             *   optional: true
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             *
-             * - Field: 'ts_us'
-             *   type: INT64
-             *   optional: true
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             *
-             * - Field: 'ts_ns'
-             *   type: INT64
-             *   optional: true
-             *   class: org.apache.kafka.connect.data.ConnectSchema
-             */
-
             try {
                 return rebuildRecord(record);
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                if(this.failOnError){
+                    throw new org.apache.kafka.connect.errors.DataException(e);
+                }
+                LOG.error("Unable to transform record:: topic:{}, key:{}", record.topic(), record.key());
+                return record;
+            } finally {
+                java.time.Instant digEvtEnd = java.time.Instant.now();
+                java.time.Duration diagEvtStartDuration = java.time.Duration.between(digEvtStart, digEvtEnd);
+
+                LOG.debug("record:: topic:{}, key:{} transformed in: {} ms",
+                        record.topic(),record.key(),diagEvtStartDuration.toMillis());
             }
         }
     }
 
     @Override
-    public ConfigDef config() {
-        return new ConfigDef()
+    public org.apache.kafka.common.config.ConfigDef config() {
+        return new org.apache.kafka.common.config.ConfigDef()
                 .define(FIELD_CONFIG,
-                        ConfigDef.Type.LIST,
-                        ConfigDef.Importance.HIGH,
+                        org.apache.kafka.common.config.ConfigDef.Type.LIST,
+                        org.apache.kafka.common.config.ConfigDef.Importance.HIGH,
                         "List of JSON field names to parse")
                 .define(FAIL_ON_ERROR_CONFIG,
-                        ConfigDef.Type.BOOLEAN,
+                        org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN,
                         false,
-                        ConfigDef.Importance.MEDIUM,
+                        org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM,
                         "JSON parsing error");
     }
 
@@ -141,11 +100,11 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
 
     private R rebuildRecord(R origRecord) throws JsonProcessingException {
 
-        var recordSchemaBuilder = SchemaBuilder
+        var recordSchemaBuilder = org.apache.kafka.connect.data.SchemaBuilder
                 .struct()
                 .name(origRecord.valueSchema().name() + "_parsed_json");
 
-        var origRecordValue = (Struct) origRecord.value();
+        var origRecordValue = (org.apache.kafka.connect.data.Struct) origRecord.value();
 
         for (var origRecordField : origRecord.valueSchema().fields()) {
             if (origRecordField.name().equals(DEBEZIUM_DATA_BEFORE_FIELD)) {
@@ -159,37 +118,46 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
             }
         }
 
-        var newRecordSchema = recordSchemaBuilder.build();
-        var newRecordValue = new Struct(newRecordSchema);
+        var transformedRecordSchema = recordSchemaBuilder.build();
+        var transformedRecordValue = new org.apache.kafka.connect.data.Struct(transformedRecordSchema);
 
-        var origBeforeValue = origRecordValue.get(DEBEZIUM_DATA_BEFORE_FIELD);
-
-        if (origBeforeValue != null) {
-            var newRecordBeforeValue =
-                    buildNewFieldData(origRecordValue,
-                            newRecordSchema.field(DEBEZIUM_DATA_BEFORE_FIELD).schema(), DEBEZIUM_DATA_BEFORE_FIELD);
-
-            newRecordValue.put(DEBEZIUM_DATA_BEFORE_FIELD, newRecordBeforeValue);
-        } else {
-            newRecordValue.put(DEBEZIUM_DATA_BEFORE_FIELD, null);
-        }
-
-        var origAfterValue = origRecordValue.get(DEBEZIUM_DATA_AFTER_FIELD);
-        if (origAfterValue != null) {
-            var newRecordAfterValue =
-                    buildNewFieldData(origRecordValue,
-                            newRecordSchema.field(DEBEZIUM_DATA_AFTER_FIELD).schema(), DEBEZIUM_DATA_AFTER_FIELD);
-
-            newRecordValue.put(DEBEZIUM_DATA_AFTER_FIELD, newRecordAfterValue);
-        } else {
-            newRecordValue.put(DEBEZIUM_DATA_AFTER_FIELD, null);
-        }
-
+        // Populate record values
         for (var f : origRecord.valueSchema().fields()) {
+            // Skip transformed fields containers (i.e. before & after in Debezium schema)
             if (f.name().equals(DEBEZIUM_DATA_BEFORE_FIELD) || f.name().equals(DEBEZIUM_DATA_AFTER_FIELD)) {
                 continue;
             }
-            newRecordValue.put(f.name(), ((Struct) origRecord.value()).get(f.name()));
+            transformedRecordValue.put(f.name(), ((org.apache.kafka.connect.data.Struct) origRecord.value()).get(f.name()));
+        }
+
+        // Populate record transformed values
+        var origBeforeValue = origRecordValue.get(DEBEZIUM_DATA_BEFORE_FIELD);
+        var origAfterValue = origRecordValue.get(DEBEZIUM_DATA_AFTER_FIELD);
+
+        if (origBeforeValue != null) {
+            var newRecordBeforeValue =
+                    rebuildFieldValue(
+                            (org.apache.kafka.connect.data.Struct) origBeforeValue,
+                            transformedRecordSchema.field(DEBEZIUM_DATA_BEFORE_FIELD).schema(),
+                            DEBEZIUM_DATA_BEFORE_FIELD
+                    );
+
+            transformedRecordValue.put(DEBEZIUM_DATA_BEFORE_FIELD, newRecordBeforeValue);
+        } else {
+            transformedRecordValue.put(DEBEZIUM_DATA_BEFORE_FIELD, null);
+        }
+
+        if (origAfterValue != null) {
+            var newRecordAfterValue =
+                    rebuildFieldValue(
+                            (org.apache.kafka.connect.data.Struct) origAfterValue,
+                            transformedRecordSchema.field(DEBEZIUM_DATA_AFTER_FIELD).schema(),
+                            DEBEZIUM_DATA_AFTER_FIELD
+                    );
+
+            transformedRecordValue.put(DEBEZIUM_DATA_AFTER_FIELD, newRecordAfterValue);
+        } else {
+            transformedRecordValue.put(DEBEZIUM_DATA_AFTER_FIELD, null);
         }
 
         return origRecord.newRecord(
@@ -197,44 +165,43 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
                 origRecord.kafkaPartition(),
                 origRecord.keySchema(),
                 origRecord.key(),
-                newRecordSchema,
-                newRecordValue,
+                transformedRecordSchema,
+                transformedRecordValue,
                 origRecord.timestamp()
         );
     }
 
-    private Struct buildNewFieldData(org.apache.kafka.connect.data.Struct origRecordValue, Schema newFieldSchema, String newFieldName)
+    private org.apache.kafka.connect.data.Struct rebuildFieldValue(org.apache.kafka.connect.data.Struct origRecordFieldValue, org.apache.kafka.connect.data.Schema fieldSchema, String fieldName)
             throws JsonProcessingException {
 
-        var old = (Struct) origRecordValue.get(newFieldName);
-        var value = new Struct(newFieldSchema);
+        var recordFieldValue = new org.apache.kafka.connect.data.Struct(fieldSchema);
 
-        for (var f : newFieldSchema.fields()) {
+        for (var f : fieldSchema.fields()) {
             if (isTargetField(f.name())) {
-                value.put(f.name(), jsonNodeToConnectValue(OBJECT_MAPPER.readTree(old.getString(f.name())), newFieldSchema.field(f.name()).schema()));
+                recordFieldValue.put(f.name(), jsonToFieldValue(OBJECT_MAPPER.readTree(origRecordFieldValue.getString(f.name())), f.schema()));
             } else {
-                value.put(f.name(), old.get(f.name()));
+                recordFieldValue.put(f.name(), origRecordFieldValue.get(f.name()));
             }
         }
 
-        return value;
+        return recordFieldValue;
     }
 
-    private org.apache.kafka.connect.data.Schema rebuildBeforeSchema(Field origBeforeField, org.apache.kafka.connect.data.Struct origRecordValue) {
+    private org.apache.kafka.connect.data.Schema rebuildBeforeSchema(org.apache.kafka.connect.data.Field origBeforeField, org.apache.kafka.connect.data.Struct origRecordValue) {
         var origRecordBeforeValue = (org.apache.kafka.connect.data.Struct) origRecordValue.get(DEBEZIUM_DATA_BEFORE_FIELD);
 
         if (origRecordBeforeValue == null) {
             // CREATE EVENT
-            return Schema.OPTIONAL_STRING_SCHEMA;
+            return org.apache.kafka.connect.data.Schema.OPTIONAL_STRING_SCHEMA;
         }
 
         var origBeforeFieldSchema = origBeforeField.schema();
-        var schemaBuilder = SchemaBuilder
+        var schemaBuilder = org.apache.kafka.connect.data.SchemaBuilder
                 .struct()
                 .name(origBeforeField.name() + "_before_field_parsed");
 
         for (var f : origBeforeFieldSchema.fields()) {
-            if (isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)) {
+            if (isTargetField(f.name()) && (f.schema().type() == org.apache.kafka.connect.data.Schema.Type.STRING)) {
                 var origRecordBeforeFieldValue = (String) origRecordBeforeValue.get(f.name());
                 schemaBuilder.field(f.name(), DebeziumJsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
             } else {
@@ -245,21 +212,21 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
         return schemaBuilder.build();
     }
 
-    private org.apache.kafka.connect.data.Schema rebuildAfterSchema(Field origAfterField, org.apache.kafka.connect.data.Struct origRecordValue) {
+    private org.apache.kafka.connect.data.Schema rebuildAfterSchema(org.apache.kafka.connect.data.Field origAfterField, org.apache.kafka.connect.data.Struct origRecordValue) {
         var origRecordAfterValue = (org.apache.kafka.connect.data.Struct) origRecordValue.get(DEBEZIUM_DATA_AFTER_FIELD);
 
         if (origRecordAfterValue == null) {
             // DELETE EVENT
-            return Schema.OPTIONAL_STRING_SCHEMA;
+            return org.apache.kafka.connect.data.Schema.OPTIONAL_STRING_SCHEMA;
         }
 
         var origBeforeFieldSchema = origAfterField.schema();
-        var schemaBuilder = SchemaBuilder
+        var schemaBuilder = org.apache.kafka.connect.data.SchemaBuilder
                 .struct()
                 .name(origAfterField.name() + "_after_field_parsed");
 
         for (var f : origBeforeFieldSchema.fields()) {
-            if (isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)) {
+            if (isTargetField(f.name()) && (f.schema().type() == org.apache.kafka.connect.data.Schema.Type.STRING)) {
                 var origRecordBeforeFieldValue = (String) origRecordAfterValue.get(f.name());
                 schemaBuilder.field(f.name(), DebeziumJsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
             } else {
@@ -274,7 +241,7 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
         return targetFields.contains(fieldName);
     }
 
-    private Object jsonNodeToConnectValue(JsonNode node, Schema targetSchema) {
+    private Object jsonToFieldValue(JsonNode node, org.apache.kafka.connect.data.Schema targetSchema) {
         if (node == null || node.isNull()) {
             return null;
         }
@@ -292,16 +259,16 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
         };
     }
 
-    private Struct jsonNodeToStruct(JsonNode node, Schema schema) {
+    private org.apache.kafka.connect.data.Struct jsonNodeToStruct(JsonNode node, org.apache.kafka.connect.data.Schema schema) {
         if (!node.isObject()) {
-            throw new DataException("Expected JSON object, got: " + node.getNodeType());
+            throw new org.apache.kafka.connect.errors.DataException("Expected JSON object, got: " + node.getNodeType());
         }
 
-        Struct struct = new Struct(schema);
+        var struct = new org.apache.kafka.connect.data.Struct(schema);
         node.fields().forEachRemaining(entry -> {
             org.apache.kafka.connect.data.Field field = schema.field(entry.getKey());
             if (field != null) {
-                Object value = jsonNodeToConnectValue(entry.getValue(), field.schema());
+                Object value = jsonToFieldValue(entry.getValue(), field.schema());
                 struct.put(field.name(), value);
             }
         });
@@ -309,9 +276,9 @@ public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transform
         return struct;
     }
 
-    private List<Object> jsonNodeToList(JsonNode node, Schema elementSchema) {
+    private List<Object> jsonNodeToList(JsonNode node, org.apache.kafka.connect.data.Schema elementSchema) {
         List<Object> list = new ArrayList<>();
-        node.forEach(item -> list.add(jsonNodeToConnectValue(item, elementSchema)));
+        node.forEach(item -> list.add(jsonToFieldValue(item, elementSchema)));
         return list;
     }
 
