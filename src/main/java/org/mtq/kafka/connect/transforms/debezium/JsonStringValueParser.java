@@ -108,8 +108,6 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
              *   class: org.apache.kafka.connect.data.ConnectSchema
              */
 
-            // TODO: Schema mode (ConnectSchema)
-
             try {
                 return rebuildRecord(record);
             } catch (JsonProcessingException e) {
@@ -151,9 +149,11 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
 
         for (var origRecordField : origRecord.valueSchema().fields()) {
             if (origRecordField.name().equals(DEBEZIUM_DATA_BEFORE_FIELD)) {
-                recordSchemaBuilder.field(origRecordField.name(), rebuildBeforeSchema(origRecordField, origRecordValue));
+                recordSchemaBuilder.field(origRecordField.name(),
+                        rebuildBeforeSchema(origRecordField, origRecordValue));
             } else if (origRecordField.name().equals(DEBEZIUM_DATA_AFTER_FIELD)) {
-                recordSchemaBuilder.field(origRecordField.name(), rebuildAfterSchema(origRecordField, origRecordValue));
+                recordSchemaBuilder.field(origRecordField.name(),
+                        rebuildAfterSchema(origRecordField, origRecordValue));
             } else {
                 recordSchemaBuilder.field(origRecordField.name(), origRecordField.schema());
             }
@@ -166,7 +166,8 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
 
         if (origBeforeValue != null) {
             var newRecordBeforeValue =
-                    buildNewFieldData(origRecordValue, newRecordSchema.field(DEBEZIUM_DATA_BEFORE_FIELD).schema(), DEBEZIUM_DATA_BEFORE_FIELD);
+                    buildNewFieldData(origRecordValue,
+                            newRecordSchema.field(DEBEZIUM_DATA_BEFORE_FIELD).schema(), DEBEZIUM_DATA_BEFORE_FIELD);
 
             newRecordValue.put(DEBEZIUM_DATA_BEFORE_FIELD, newRecordBeforeValue);
         } else {
@@ -176,7 +177,8 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         var origAfterValue = origRecordValue.get(DEBEZIUM_DATA_AFTER_FIELD);
         if (origAfterValue != null) {
             var newRecordAfterValue =
-                    buildNewFieldData(origRecordValue, newRecordSchema.field(DEBEZIUM_DATA_AFTER_FIELD).schema(), DEBEZIUM_DATA_AFTER_FIELD);
+                    buildNewFieldData(origRecordValue,
+                            newRecordSchema.field(DEBEZIUM_DATA_AFTER_FIELD).schema(), DEBEZIUM_DATA_AFTER_FIELD);
 
             newRecordValue.put(DEBEZIUM_DATA_AFTER_FIELD, newRecordAfterValue);
         } else {
