@@ -17,13 +17,13 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transformation<R>, Versioned {
+public class DebeziumJsonParser<R extends ConnectRecord<R>> implements Transformation<R>, Versioned {
 
     private static final String VERSION = "1.6.8";
     private static final String DEBEZIUM_DATA_BEFORE_FIELD = "before";
     private static final String DEBEZIUM_DATA_AFTER_FIELD = "after";
 
-    private static final Logger log = LoggerFactory.getLogger(JsonStringValueParser.class);
+    private static final Logger log = LoggerFactory.getLogger(DebeziumJsonParser.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String FIELD_CONFIG = "targetFields";
@@ -50,7 +50,7 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         Object failObj = props.get(FAIL_ON_ERROR_CONFIG);
         this.failOnError = failObj == null || Boolean.parseBoolean(failObj.toString());
 
-        log.info("JsonStringValueParser configured for fields: {}", targetFields);
+        log.info("DebeziumJsonParser configured for fields: {}", targetFields);
     }
 
     @Override
@@ -236,7 +236,7 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         for (var f : origBeforeFieldSchema.fields()) {
             if (isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)) {
                 var origRecordBeforeFieldValue = (String) origRecordBeforeValue.get(f.name());
-                schemaBuilder.field(f.name(), JsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
+                schemaBuilder.field(f.name(), DebeziumJsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
             } else {
                 schemaBuilder.field(f.name(), f.schema());
             }
@@ -261,7 +261,7 @@ public class JsonStringValueParser<R extends ConnectRecord<R>> implements Transf
         for (var f : origBeforeFieldSchema.fields()) {
             if (isTargetField(f.name()) && (f.schema().type() == Schema.Type.STRING)) {
                 var origRecordBeforeFieldValue = (String) origRecordAfterValue.get(f.name());
-                schemaBuilder.field(f.name(), JsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
+                schemaBuilder.field(f.name(), DebeziumJsonSchemaBuilder.buildSchema(origRecordBeforeFieldValue));
             } else {
                 schemaBuilder.field(f.name(), f.schema());
             }

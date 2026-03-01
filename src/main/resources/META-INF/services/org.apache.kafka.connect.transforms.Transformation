@@ -1,1 +1,1 @@
-org.mtq.kafka.connect.transforms.debezium.JsonStringValueParser
+org.mtq.kafka.connect.transforms.debezium.DebeziumJsonParser

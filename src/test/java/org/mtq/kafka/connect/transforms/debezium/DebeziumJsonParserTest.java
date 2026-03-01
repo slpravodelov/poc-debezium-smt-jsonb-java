@@ -1,6 +1,5 @@
 package org.mtq.kafka.connect.transforms.debezium;
 
-import org.apache.kafka.connect.connector.ConnectRecord;
 import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,14 +11,14 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class JsonStringValueParserTest {
+class DebeziumJsonParserTest {
 
-    private JsonStringValueParser<SinkRecord> transformation;
+    private DebeziumJsonParser<SinkRecord> transformation;
     private static final String TEST_TOPIC = "test.topic";
 
     @BeforeEach
     void setUp() {
-        transformation = new JsonStringValueParser<>();
+        transformation = new DebeziumJsonParser<>();
     }
 
     @Nested
@@ -39,12 +38,12 @@ class JsonStringValueParserTest {
 
             // Then - используем reflection для проверки приватных полей
             try {
-                var targetFieldsField = JsonStringValueParser.class.getDeclaredField("targetFields");
+                var targetFieldsField = DebeziumJsonParser.class.getDeclaredField("targetFields");
                 targetFieldsField.setAccessible(true);
                 @SuppressWarnings("unchecked")
                 Set<String> targetFields = (Set<String>) targetFieldsField.get(transformation);
 
-                var failOnErrorField = JsonStringValueParser.class.getDeclaredField("failOnError");
+                var failOnErrorField = DebeziumJsonParser.class.getDeclaredField("failOnError");
                 failOnErrorField.setAccessible(true);
                 boolean failOnError = failOnErrorField.getBoolean(transformation);
 

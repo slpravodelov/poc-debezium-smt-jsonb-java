@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
-public class JsonSchemaBuilder {
+public class DebeziumJsonSchemaBuilder {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
