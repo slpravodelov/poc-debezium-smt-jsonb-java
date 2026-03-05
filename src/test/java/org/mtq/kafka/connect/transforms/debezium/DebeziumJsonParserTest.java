@@ -37,7 +37,7 @@ class DebeziumJsonParserTest {
             // When
             transformation.configure(config);
 
-            // Then - используем reflection для проверки приватных полей
+            // Then
             try {
                 var targetFieldsField = DebeziumJsonParser.class.getDeclaredField("targetFields");
                 targetFieldsField.setAccessible(true);
@@ -65,7 +65,6 @@ class DebeziumJsonParserTest {
 
         @BeforeEach
         void setUp() {
-            // Создаем схему таблицы
             tableValueSchema = SchemaBuilder.struct()
                     .name("test.TableValue")
                     .field("id", Schema.INT32_SCHEMA)
@@ -76,7 +75,6 @@ class DebeziumJsonParserTest {
                     .optional()
                     .build();
 
-            // Создаем Debezium Envelope схему
             debeziumEnvelopeSchema = SchemaBuilder.struct()
                     .name("test.Envelope")
                     .field("before", tableValueSchema)
@@ -141,7 +139,22 @@ class DebeziumJsonParserTest {
             SinkRecord record = createRecord(value);
 
             // When
+            java.time.Instant digEvtStart = java.time.Instant.now();
+
             SinkRecord result = transformation.apply(record);
+
+            java.time.Instant digEvtEnd = java.time.Instant.now();
+            java.time.Duration diagEvtStartDuration = java.time.Duration.between(digEvtStart, digEvtEnd);
+
+            /*
+            In high-performance Debezium deployments, "good" performance for Single Message Transformations (SMTs)
+            combined with change data capture (CDC) streaming typically means an end-to-end latency in the single-digit
+            to low double-digit milliseconds range (e.g., 5-50ms) from source database commit to Kafka topic
+            */
+            var transformDurationMs = diagEvtStartDuration.toMillis();
+
+            // Then
+            assertTrue(transformDurationMs < 30); // Hardware-dependent
 
             // Then
             assertNotNull(result);
@@ -150,17 +163,15 @@ class DebeziumJsonParserTest {
             Struct resultValue = (Struct) result.value();
             Struct resultAfter = resultValue.getStruct("after");
 
-            // Проверяем, что поля изменились
             assertNotNull(resultAfter);
 
-            // Проверяем JSON field
             Object jsonField = resultAfter.get("json_field");
             assertTrue(jsonField instanceof Struct);
             Struct jsonFieldStruct = (Struct) jsonField;
             assertEquals("value", jsonFieldStruct.getString("key"));
             assertEquals(42, jsonFieldStruct.getInt32("number"));
 
-            // Проверяем JSON array
+            // Arrays
             Object jsonArray = resultAfter.get("json_array");
             assertTrue(jsonArray instanceof List);
             @SuppressWarnings("unchecked")
@@ -169,7 +180,7 @@ class DebeziumJsonParserTest {
             assertEquals(1, arrayList.get(0));
             assertEquals(5, arrayList.get(4));
 
-            // Проверяем nested JSON
+            // Nested objects
             Object nestedJson = resultAfter.get("nested_json");
             assertTrue(nestedJson instanceof Struct);
             Struct nestedStruct = (Struct) nestedJson;

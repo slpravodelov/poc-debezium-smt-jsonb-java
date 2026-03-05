@@ -12,7 +12,7 @@ import java.util.*;
 public class DebeziumJsonParser<R extends org.apache.kafka.connect.connector.ConnectRecord<R>>
         implements org.apache.kafka.connect.transforms.Transformation<R>, org.apache.kafka.connect.components.Versioned {
 
-    private static final String VERSION = "1.6.8";
+    private static final String VERSION = "1.6.9";
     private static final String DEBEZIUM_DATA_BEFORE_FIELD = "before";
     private static final String DEBEZIUM_DATA_AFTER_FIELD = "after";
 

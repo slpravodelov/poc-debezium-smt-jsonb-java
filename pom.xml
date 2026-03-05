@@ -7,7 +7,7 @@
 
     <groupId>org.mtq.kafka.connect.transforms.debezium</groupId>
     <artifactId>debezium-smt-json</artifactId>
-    <version>1.6.8</version>
+    <version>1.6.9</version>
     <packaging>jar</packaging>
 
     <properties>
